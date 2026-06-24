@@ -82,11 +82,11 @@ function renderTasksView(container, params) {
 
     <div class="space-y-8">
       <section>
-        <h2 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">${ICONS.list} Danh sách</h2>
+        <h2 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><span style="display:inline-flex">${fixIconSize(ICONS.list, 16)}</span> Danh sách</h2>
         ${renderListLayout(allMemberTasks)}
       </section>
       <section>
-        <h2 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">${ICONS.kanban} Kanban</h2>
+        <h2 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><span style="display:inline-flex">${fixIconSize(ICONS.kanban, 16)}</span> Kanban</h2>
         ${renderKanbanLayout(allMemberTasks)}
       </section>
     </div>
@@ -112,6 +112,13 @@ function projectLegendHtml(tasks) {
         })
         .join("")}
     </div>`;
+}
+
+// Một số icon trong ICONS (định nghĩa ở app.js) dùng class Tailwind không hợp lệ
+// (w-4.5 / h-4.5 không tồn tại trong Tailwind core) nên có thể bị render quá to.
+// Hàm này ép kích thước cố định bằng style inline, không phụ thuộc Tailwind.
+function fixIconSize(svgHtml, px) {
+  return svgHtml.replace("<svg", `<svg style="width:${px}px;height:${px}px;display:block"`);
 }
 
 function setTaskFilter(key) {
