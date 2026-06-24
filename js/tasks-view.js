@@ -1,9 +1,11 @@
 // ============================================================
 // TASKS VIEW - task chi tiết theo từng thành viên
-// Có 2 kiểu xem: Danh sách (list, lọc theo hạn) và Kanban (cột theo trạng thái)
+// Hiển thị ĐỒNG THỜI 2 khối: Danh sách (lọc theo hạn) ở trên,
+// Kanban (cột theo trạng thái) ở dưới — không cần nút chuyển qua lại.
+// Tô màu task: viền theo TRẠNG THÁI + chấm tròn theo DỰ ÁN.
 // ============================================================
 
-let tasksViewState = { memberId: null, filter: "today", layout: "list" };
+let tasksViewState = { memberId: null, filter: "today" };
 
 const TASK_FILTERS = [
   { key: "today", label: "Hạn hôm nay", fn: isDueToday },
@@ -20,6 +22,42 @@ const KANBAN_COLUMNS = [
   { key: "done", label: "Hoàn thành" },
 ];
 
+// ---------- MÀU THEO DỰ ÁN (chấm tròn) ----------
+// Bảng màu cố định, gán theo project_id (hash) để mỗi dự án có 1 màu ổn định
+// xuyên suốt cả Danh sách và Kanban.
+const PROJECT_DOT_COLORS = [
+  "bg-indigo-500",
+  "bg-rose-500",
+  "bg-amber-500",
+  "bg-emerald-500",
+  "bg-sky-500",
+  "bg-violet-500",
+  "bg-fuchsia-500",
+  "bg-cyan-600",
+  "bg-orange-500",
+  "bg-teal-500",
+];
+function projectDotColor(projectId) {
+  if (!projectId) return "bg-slate-300";
+  let hash = 0;
+  for (let i = 0; i < projectId.length; i++) hash = (hash + projectId.charCodeAt(i)) % PROJECT_DOT_COLORS.length;
+  return PROJECT_DOT_COLORS[hash];
+}
+
+// ---------- VIỀN THEO TRẠNG THÁI ----------
+const STATUS_BORDER_COLOR = {
+  todo: "border-slate-200",
+  doing: "border-amber-300",
+  waiting_confirm: "border-sky-300",
+  done: "border-emerald-300",
+  cancelled: "border-slate-200",
+};
+// Trễ hạn luôn được nhấn mạnh bằng viền đỏ, bất kể trạng thái
+function taskBorderClass(t) {
+  if (isOverdue(t)) return "border-rose-300";
+  return STATUS_BORDER_COLOR[t.status] || "border-slate-200";
+}
+
 function renderTasksView(container, params) {
   const activeMembers = store.members.filter((m) => m.is_active !== false);
   if (params && params.memberId) tasksViewState.memberId = params.memberId;
@@ -34,23 +72,24 @@ function renderTasksView(container, params) {
     <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
       <h1 class="text-lg font-semibold text-slate-800">Task của thành viên</h1>
       <div class="flex items-center gap-2">
-        <div class="flex items-center bg-white border border-slate-200 rounded-lg p-0.5">
-          <button onclick="setTaskLayout('list')" title="Xem danh sách"
-            class="px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition ${tasksViewState.layout === "list" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-50"}">
-            ${ICONS.list} Danh sách
-          </button>
-          <button onclick="setTaskLayout('kanban')" title="Xem theo luồng Kanban"
-            class="px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition ${tasksViewState.layout === "kanban" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-50"}">
-            ${ICONS.kanban} Kanban
-          </button>
-        </div>
         <select id="member-select" class="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
           ${activeMembers.map((m) => `<option value="${m.id}" ${m.id === memberId ? "selected" : ""}>${escapeHtml(m.name)}</option>`).join("")}
         </select>
       </div>
     </div>
 
-    ${tasksViewState.layout === "list" ? renderListLayout(allMemberTasks) : renderKanbanLayout(allMemberTasks)}
+    ${projectLegendHtml(allMemberTasks)}
+
+    <div class="space-y-8">
+      <section>
+        <h2 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">${ICONS.list} Danh sách</h2>
+        ${renderListLayout(allMemberTasks)}
+      </section>
+      <section>
+        <h2 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">${ICONS.kanban} Kanban</h2>
+        ${renderKanbanLayout(allMemberTasks)}
+      </section>
+    </div>
   `;
 
   document.getElementById("member-select").addEventListener("change", (e) => {
@@ -59,9 +98,20 @@ function renderTasksView(container, params) {
   });
 }
 
-function setTaskLayout(layout) {
-  tasksViewState.layout = layout;
-  navigateTo("tasks");
+// Chú giải màu dự án, để người dùng biết chấm màu nào ứng với dự án nào
+function projectLegendHtml(tasks) {
+  const projectIds = [...new Set(tasks.map((t) => t.project_id).filter(Boolean))];
+  if (!projectIds.length) return "";
+  return `
+    <div class="flex items-center gap-3 flex-wrap mb-5 text-xs text-slate-500">
+      <span class="font-medium text-slate-400">Dự án:</span>
+      ${projectIds
+        .map((pid) => {
+          const p = getProject(pid);
+          return `<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full ${projectDotColor(pid)}"></span>${escapeHtml(p ? p.name : "—")}</span>`;
+        })
+        .join("")}
+    </div>`;
 }
 
 function setTaskFilter(key) {
@@ -106,11 +156,14 @@ function taskRowHtml(t) {
   const recurringTag = t.task_type === "dinh_ky" ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 font-medium">Định kỳ</span>` : "";
 
   return `
-    <div class="bg-white rounded-xl border ${isDone ? "border-emerald-200 bg-emerald-50/40" : overdue ? "border-rose-200" : "border-slate-200"} px-4 py-3.5">
+    <div class="bg-white rounded-xl border-2 ${taskBorderClass(t)} ${isDone ? "bg-emerald-50/40" : ""} px-4 py-3.5">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
-            <span class="text-xs font-medium text-indigo-500">${escapeHtml(project ? project.name : "Không có dự án")}</span>
+            <span class="flex items-center gap-1.5 text-xs font-medium text-indigo-500">
+              <span class="w-2 h-2 rounded-full ${projectDotColor(t.project_id)} shrink-0"></span>
+              ${escapeHtml(project ? project.name : "Không có dự án")}
+            </span>
             ${recurringTag}
             ${overdue ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 font-medium">Trễ hạn</span>` : ""}
             ${t.status === "waiting_confirm" ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-medium">Chờ xác nhận</span>` : ""}
@@ -193,9 +246,12 @@ function kanbanCardHtml(t) {
 
   return `
     <div draggable="true" ondragstart="onKanbanDragStart(event, '${t.id}')"
-      class="bg-white rounded-xl border ${isDone ? "border-emerald-200" : overdue ? "border-rose-200" : "border-slate-200"} px-3.5 py-3 cursor-grab shadow-sm hover:shadow-md transition">
+      class="bg-white rounded-xl border-2 ${taskBorderClass(t)} px-3.5 py-3 cursor-grab shadow-sm hover:shadow-md transition">
       <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
-        <span class="text-[11px] font-medium text-indigo-500">${escapeHtml(project ? project.name : "—")}</span>
+        <span class="flex items-center gap-1 text-[11px] font-medium text-indigo-500">
+          <span class="w-1.5 h-1.5 rounded-full ${projectDotColor(t.project_id)} shrink-0"></span>
+          ${escapeHtml(project ? project.name : "—")}
+        </span>
         ${t.task_type === "dinh_ky" ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 font-medium">Định kỳ</span>` : ""}
         ${overdue ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 font-medium">Trễ hạn</span>` : ""}
       </div>
