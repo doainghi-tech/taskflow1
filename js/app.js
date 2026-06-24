@@ -19,6 +19,7 @@ const ICONS = {
   clock: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
   users: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.3 2.9-6 6.5-6s6.5 2.7 6.5 6"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 14a5.6 5.6 0 0 1 5.8 6"/></svg>',
   bell: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 3.5-1 5.5-1.8 6.7A1 1 0 0 0 5 16.4h14a1 1 0 0 0 .8-1.7C19 13.5 18 11.5 18 8Z"/><path d="M10 19.5a2 2 0 0 0 4 0"/></svg>',
+  refresh: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 0 1 15.3-6.4M21 12a9 9 0 0 1-15.3 6.4"/><polyline points="18.5 3.5 18.5 8 14 8"/><polyline points="5.5 20.5 5.5 16 10 16"/></svg>',
   kanban: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="10" rx="1"/><rect x="16" y="4" width="5" height="13" rx="1"/></svg>',
   check: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
   edit: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
@@ -81,12 +82,17 @@ function renderShell() {
       <div class="flex-1 flex flex-col min-w-0">
         <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
           <h2 id="header-title" class="text-sm font-semibold text-slate-700">${VIEW_TITLES[currentView] || ""}</h2>
-          <div class="relative">
-            <button onclick="toggleNotificationDropdown(event)" class="relative w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500" title="Thông báo">
-              ${ICONS.bell}
-              <span id="notif-badge" class="${unreadNotificationCount() > 0 ? "" : "hidden"} absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
+          <div class="flex items-center gap-1.5">
+            <button id="refresh-btn" onclick="handleManualRefresh(this)" class="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500" title="Làm mới dữ liệu">
+              ${ICONS.refresh}
             </button>
-            <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 max-h-[28rem] overflow-y-auto bg-white rounded-xl border border-slate-200 shadow-lg z-50"></div>
+            <div class="relative">
+              <button onclick="toggleNotificationDropdown(event)" class="relative w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500" title="Thông báo">
+                ${ICONS.bell}
+                <span id="notif-badge" class="${unreadNotificationCount() > 0 ? "" : "hidden"} absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
+              </button>
+              <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 max-h-[28rem] overflow-y-auto bg-white rounded-xl border border-slate-200 shadow-lg z-50"></div>
+            </div>
           </div>
         </header>
         <main class="flex-1 overflow-y-auto">
@@ -153,6 +159,27 @@ async function refreshAndRerender() {
   renderNav();
   navigateTo(currentView);
   refreshNotificationBadge();
+}
+
+// Nút làm mới thủ công cạnh chuông thông báo: tải lại toàn bộ dữ liệu từ
+// Google Sheet ngay lập tức, không cần đợi vòng poll 30 giây hoặc F5 cả trang.
+async function handleManualRefresh(btn) {
+  if (btn.dataset.loading === "1") return; // chặn bấm liên tục khi đang tải
+  btn.dataset.loading = "1";
+  btn.disabled = true;
+  btn.classList.add("animate-spin");
+  try {
+    await refreshAndRerender();
+  } catch (err) {
+    toast("Không thể làm mới dữ liệu", "error");
+  } finally {
+    const liveBtn = document.getElementById("refresh-btn");
+    if (liveBtn) {
+      liveBtn.classList.remove("animate-spin");
+      liveBtn.disabled = false;
+      liveBtn.dataset.loading = "0";
+    }
+  }
 }
 
 // ============================================================
