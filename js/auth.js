@@ -28,7 +28,7 @@ function renderLoginScreen() {
             Đăng nhập
           </button>
         </form>
-        <p class="text-center text-xs text-slate-400 mt-4">Tài khoản đầu tiên: admin / admin123</p>
+        <p class="text-center text-xs text-slate-400 mt-4">Chúc các bạn có một ngày làm việc hiệu quả!</p>
       </div>
     </div>`;
 
