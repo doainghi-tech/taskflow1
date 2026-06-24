@@ -28,7 +28,7 @@ function renderLoginScreen() {
             Đăng nhập
           </button>
         </form>
-        <p class="text-center text-xs text-slate-400 mt-4">Liên hệ Leader để nhận tài khoản</p>
+        <p class="text-center text-xs text-slate-400 mt-4">Tài khoản đầu tiên: admin / admin123</p>
       </div>
     </div>`;
 
@@ -68,9 +68,22 @@ function logout() {
 async function restoreSession() {
   const id = localStorage.getItem("taskflow_user_id");
   if (!id) return false;
-  const members = await apiListMembers();
-  const user = members.find((m) => m.id === id && m.is_active);
-  if (!user) return false;
-  store.currentUser = user;
-  return true;
+  try {
+    const members = await apiListMembers();
+    const user = members.find((m) => String(m.id) === String(id) && m.is_active);
+    if (!user) return false;
+    store.currentUser = user;
+    return true;
+  } catch (err) {
+    // Lỗi mạng/API tạm thời (vd. Apps Script khởi động chậm) — KHÔNG được coi
+    // là "phiên hết hạn" và đăng xuất người dùng. Báo lỗi ngay trên màn hình
+    // đăng nhập để người dùng biết cần thử lại (F5), thay vì âm thầm văng ra.
+    console.error("Không thể khôi phục phiên đăng nhập:", err);
+    const errEl = document.getElementById("login-error");
+    if (errEl) {
+      errEl.textContent = "Không kết nối được tới máy chủ. Vui lòng tải lại trang (F5) — tài khoản của bạn vẫn còn đăng nhập.";
+      errEl.classList.remove("hidden");
+    }
+    return false;
+  }
 }
