@@ -20,6 +20,8 @@ const ICONS = {
   users: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.3 2.9-6 6.5-6s6.5 2.7 6.5 6"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 14a5.6 5.6 0 0 1 5.8 6"/></svg>',
   bell: '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 3.5-1 5.5-1.8 6.7A1 1 0 0 0 5 16.4h14a1 1 0 0 0 .8-1.7C19 13.5 18 11.5 18 8Z"/><path d="M10 19.5a2 2 0 0 0 4 0"/></svg>',
   refresh: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 0 1 15.3-6.4M21 12a9 9 0 0 1-15.3 6.4"/><polyline points="18.5 3.5 18.5 8 14 8"/><polyline points="5.5 20.5 5.5 16 10 16"/></svg>',
+  menu: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[20px] h-[20px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
+  close: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[20px] h-[20px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
   kanban: '<svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="10" rx="1"/><rect x="16" y="4" width="5" height="13" rx="1"/></svg>',
   check: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
   edit: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
@@ -29,6 +31,7 @@ const ICONS = {
 let currentView = "dashboard";
 let notificationDropdownOpen = false;
 let notificationPollHandle = null;
+let sidebarOpen = false; // chỉ có ý nghĩa trên mobile (< md) — sidebar dạng drawer trượt
 
 const VIEW_TITLES = {
   dashboard: "Tổng quan",
@@ -57,13 +60,21 @@ function pendingExtensionCount() {
 function renderShell() {
   const root = document.getElementById("app-root");
   root.innerHTML = `
-    <div class="flex h-screen bg-slate-50 text-slate-800">
-      <aside class="w-60 bg-white border-r border-slate-200 flex flex-col shrink-0">
-        <div class="px-5 py-5 flex items-center gap-2 border-b border-slate-100">
-          <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold text-sm flex items-center justify-center">TF</div>
-          <span class="font-semibold text-slate-800">TaskFlow</span>
+    <div class="flex h-screen bg-slate-50 text-slate-800 overflow-hidden">
+      <!-- Lớp phủ tối phía sau sidebar khi mở trên mobile -->
+      <div id="sidebar-overlay" onclick="closeSidebar()"
+        class="${sidebarOpen ? "" : "hidden"} fixed inset-0 bg-slate-900/40 z-30 md:hidden"></div>
+
+      <aside id="app-sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-64 md:w-60 bg-white border-r border-slate-200 flex flex-col shrink-0
+        transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0">
+        <div class="px-5 py-5 flex items-center justify-between gap-2 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold text-sm flex items-center justify-center">TF</div>
+            <span class="font-semibold text-slate-800">TaskFlow</span>
+          </div>
+          <button onclick="closeSidebar()" class="md:hidden text-slate-400 hover:text-slate-600" title="Đóng menu">${ICONS.close}</button>
         </div>
-        <nav id="nav-list" class="flex-1 px-3 py-4 space-y-1"></nav>
+        <nav id="nav-list" class="flex-1 px-3 py-4 space-y-1 overflow-y-auto"></nav>
         <div class="px-3 py-4 border-t border-slate-100">
           <div class="flex items-center gap-2.5 px-2">
             <div class="w-8 h-8 rounded-full ${avatarColor(store.currentUser.id)} text-white text-xs font-semibold flex items-center justify-center shrink-0">
@@ -80,9 +91,12 @@ function renderShell() {
         </div>
       </aside>
       <div class="flex-1 flex flex-col min-w-0">
-        <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
-          <h2 id="header-title" class="text-sm font-semibold text-slate-700">${VIEW_TITLES[currentView] || ""}</h2>
-          <div class="flex items-center gap-1.5">
+        <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-3 md:px-6 shrink-0">
+          <div class="flex items-center gap-2 min-w-0">
+            <button onclick="openSidebar()" class="md:hidden text-slate-500 hover:text-slate-700 shrink-0 -ml-1 p-1" title="Mở menu">${ICONS.menu}</button>
+            <h2 id="header-title" class="text-sm font-semibold text-slate-700 truncate">${VIEW_TITLES[currentView] || ""}</h2>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
             <button id="refresh-btn" onclick="handleManualRefresh(this)" class="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500" title="Làm mới dữ liệu">
               ${ICONS.refresh}
             </button>
@@ -91,12 +105,12 @@ function renderShell() {
                 ${ICONS.bell}
                 <span id="notif-badge" class="${unreadNotificationCount() > 0 ? "" : "hidden"} absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white"></span>
               </button>
-              <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 max-h-[28rem] overflow-y-auto bg-white rounded-xl border border-slate-200 shadow-lg z-50"></div>
+              <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-80 max-h-[28rem] overflow-y-auto bg-white rounded-xl border border-slate-200 shadow-lg z-50"></div>
             </div>
           </div>
         </header>
         <main class="flex-1 overflow-y-auto">
-          <div id="view-root" class="max-w-6xl mx-auto px-6 py-6"></div>
+          <div id="view-root" class="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6"></div>
         </main>
       </div>
     </div>
@@ -114,6 +128,24 @@ function renderShell() {
   });
 }
 
+function openSidebar() {
+  sidebarOpen = true;
+  document.getElementById("app-sidebar").classList.remove("-translate-x-full");
+  document.getElementById("app-sidebar").classList.add("translate-x-0");
+  document.getElementById("sidebar-overlay").classList.remove("hidden");
+}
+
+function closeSidebar() {
+  sidebarOpen = false;
+  const aside = document.getElementById("app-sidebar");
+  const overlay = document.getElementById("sidebar-overlay");
+  if (aside) {
+    aside.classList.add("-translate-x-full");
+    aside.classList.remove("translate-x-0");
+  }
+  if (overlay) overlay.classList.add("hidden");
+}
+
 function renderNav() {
   const navList = document.getElementById("nav-list");
   navList.innerHTML = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin())
@@ -124,7 +156,7 @@ function renderNav() {
           ? `<span class="ml-auto text-[11px] bg-rose-500 text-white rounded-full px-1.5 py-0.5 leading-none">${pendingExtensionCount()}</span>`
           : "";
       return `
-        <button data-view="${item.key}" onclick="navigateTo('${item.key}')"
+        <button data-view="${item.key}" onclick="navigateTo('${item.key}'); closeSidebar();"
           class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition
             ${active ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"}">
           <span class="${active ? "text-indigo-600" : "text-slate-400"}">${ICONS[item.icon]}</span>
