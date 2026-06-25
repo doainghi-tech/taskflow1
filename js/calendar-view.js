@@ -31,7 +31,7 @@ function renderCalendarView(container) {
   container.innerHTML = `
     <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
       <h1 class="text-lg font-semibold text-slate-800">Lịch</h1>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <select id="calendar-member-select" class="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <option value="${store.currentUser.id}" ${calendarState.memberId === store.currentUser.id ? "selected" : ""}>Của tôi</option>
           <option value="all" ${calendarState.memberId === "all" ? "selected" : ""}>Tất cả mọi người</option>
@@ -93,8 +93,8 @@ function calendarCellHtml(d, currentMonth, visibleTasks) {
           .slice(0, 3)
           .map(
             (t) => `
-          <div draggable="true" ondragstart="onCalendarDragStart(event, '${t.id}')"
-            class="text-[11px] px-1.5 py-1 rounded cursor-grab leading-tight ${isOverdue(t) ? "bg-rose-100 text-rose-700" : STATUS_COLOR[t.status]} ${t.status === "done" ? "line-through" : ""} truncate"
+          <div draggable="true" ondragstart="onCalendarDragStart(event, '${t.id}')" onclick="event.stopPropagation(); openTaskDetailModal('${t.id}')"
+            class="text-[11px] px-1.5 py-1 rounded cursor-pointer leading-tight ${isOverdue(t) ? "bg-rose-100 text-rose-700" : STATUS_COLOR[t.status]} ${t.status === "done" ? "line-through" : ""} truncate hover:opacity-80"
             title="${escapeHtml(t.title)}">
             ${escapeHtml(t.title)}
           </div>`
