@@ -55,7 +55,7 @@ function assignmentTaskRowHtml(t) {
   const overdue = isOverdue(t);
   const childCount = t.task_type === "dinh_ky" ? store.tasks.filter((c) => c.parent_recurring_id === t.id).length : 0;
   return `
-    <div class="px-5 py-3 flex items-center justify-between gap-3">
+    <div onclick="openTaskDetailModal('${t.id}')" class="px-5 py-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50 transition">
       <div class="min-w-0">
         <div class="flex items-center gap-2 mb-0.5 flex-wrap">
           <p class="font-medium text-sm text-slate-700">${escapeHtml(t.title)}</p>
@@ -69,7 +69,7 @@ function assignmentTaskRowHtml(t) {
           ${childCount ? ` · ${childCount} kỳ sắp tới đã tạo` : ""}
         </p>
       </div>
-      <div class="flex items-center gap-1.5 shrink-0">
+      <div onclick="event.stopPropagation()" class="flex items-center gap-1.5 shrink-0">
         <button onclick="openEditTaskModal('${t.id}')" class="text-slate-300 hover:text-indigo-600" title="Sửa task">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </button>
@@ -98,7 +98,7 @@ function openEditTaskModal(taskId) {
           <label class="block text-xs font-medium text-slate-500 mb-1">Mô tả</label>
           <textarea id="edit-task-desc" rows="2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">${escapeHtml(task.description || "")}</textarea>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Người phụ trách chính</label>
             <select id="edit-task-main" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -243,7 +243,7 @@ function openCreateTaskModal(projectId) {
           <label class="block text-xs font-medium text-slate-500 mb-1">Mô tả</label>
           <textarea id="new-task-desc" rows="2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Người phụ trách chính</label>
             <select id="new-task-main" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -273,7 +273,7 @@ function openCreateTaskModal(projectId) {
           <input id="new-task-due" type="date" value="${todayStr()}" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div id="recurrence-fields" class="hidden space-y-3">
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-slate-500 mb-1">Lặp lại mỗi</label>
               <select id="rec-type" onchange="onRecurrenceTypeChange()" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
