@@ -69,10 +69,107 @@ function assignmentTaskRowHtml(t) {
           ${childCount ? ` · ${childCount} kỳ sắp tới đã tạo` : ""}
         </p>
       </div>
-      <button onclick="confirmDeleteTask('${t.id}')" class="text-slate-300 hover:text-rose-500 shrink-0" title="Xóa task">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-      </button>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="openEditTaskModal('${t.id}')" class="text-slate-300 hover:text-indigo-600" title="Sửa task">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+        <button onclick="confirmDeleteTask('${t.id}')" class="text-slate-300 hover:text-rose-500" title="Xóa task">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
     </div>`;
+}
+
+// ---------- SỬA TASK ----------
+function openEditTaskModal(taskId) {
+  const task = store.tasks.find((t) => t.id === taskId);
+  if (!task) return;
+  const activeMembers = store.members.filter((m) => m.is_active !== false || m.id === task.main_assignee_id);
+  openModal(
+    `
+    <div class="p-5">
+      <h3 class="font-semibold text-slate-800 mb-4">Sửa task</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Tên task</label>
+          <input id="edit-task-title" type="text" value="${escapeHtml(task.title)}" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Mô tả</label>
+          <textarea id="edit-task-desc" rows="2" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">${escapeHtml(task.description || "")}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Người phụ trách chính</label>
+            <select id="edit-task-main" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              ${memberOptionsHtml(activeMembers, task.main_assignee_id)}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Người hỗ trợ</label>
+            <select id="edit-task-support" multiple class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              ${activeMembers.map((m) => `<option value="${m.id}" ${(task.support_assignee_ids || []).includes(m.id) ? "selected" : ""}>${escapeHtml(m.name)}</option>`).join("")}
+            </select>
+            <p class="text-[11px] text-slate-400 mt-1">Người hỗ trợ mới thêm vào sẽ nhận được thông báo.</p>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Hạn chót</label>
+          <input id="edit-task-due" type="date" value="${task.due_date}" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Hủy</button>
+        <button onclick="submitEditTask('${taskId}')" class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">Lưu thay đổi</button>
+      </div>
+    </div>`,
+    { width: "max-w-xl" }
+  );
+}
+
+async function submitEditTask(taskId) {
+  const task = store.tasks.find((t) => t.id === taskId);
+  if (!task) return;
+  const title = document.getElementById("edit-task-title").value.trim();
+  const description = document.getElementById("edit-task-desc").value.trim();
+  const mainAssignee = document.getElementById("edit-task-main").value;
+  const newSupport = Array.from(document.getElementById("edit-task-support").selectedOptions).map((o) => o.value);
+  const dueDate = document.getElementById("edit-task-due").value;
+  if (!title) return toast("Nhập tên task", "error");
+  if (!dueDate) return toast("Chọn hạn chót", "error");
+
+  // Xác định người hỗ trợ MỚI được thêm vào (so với danh sách cũ) và người
+  // phụ trách chính mới (nếu vừa được đổi sang) — chỉ những người này mới
+  // cần nhận thông báo "được giao task", tránh báo lại cho người đã biết rồi.
+  const oldSupport = task.support_assignee_ids || [];
+  const newlyAddedSupport = newSupport.filter((id) => !oldSupport.includes(id));
+  const mainAssigneeChanged = mainAssignee !== task.main_assignee_id;
+
+  try {
+    await apiUpdateTask(taskId, {
+      title,
+      description,
+      main_assignee_id: mainAssignee,
+      support_assignee_ids: newSupport,
+      due_date: dueDate,
+    });
+    closeModal();
+    toast("Đã lưu thay đổi", "success");
+
+    const newlyNotified = [...newlyAddedSupport, ...(mainAssigneeChanged ? [mainAssignee] : [])];
+    if (newlyNotified.length) {
+      await notifyUsers(
+        newlyNotified,
+        "task_assigned",
+        "Bạn được giao task mới",
+        `${escapeHtml(title)} · Hạn: ${formatDateVN(dueDate)}`,
+        taskId
+      );
+    }
+    await refreshAndRerender();
+  } catch (err) {
+    toast("Không thể lưu thay đổi", "error");
+  }
 }
 
 function recurrenceLabel(rule) {
