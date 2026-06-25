@@ -192,6 +192,7 @@ const NOTIF_ICON_BY_TYPE = {
   extension_rejected: { icon: "❌", color: "bg-rose-50 text-rose-600" },
   confirm_needed: { icon: "🔎", color: "bg-sky-50 text-sky-600" },
   task_confirmed: { icon: "🎉", color: "bg-emerald-50 text-emerald-600" },
+  task_status_changed: { icon: "🔄", color: "bg-indigo-50 text-indigo-600" },
 };
 
 function refreshNotificationBadge() {
