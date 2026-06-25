@@ -156,7 +156,7 @@ function taskRowHtml(t) {
   const recurringTag = t.task_type === "dinh_ky" ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 font-medium">Định kỳ</span>` : "";
 
   return `
-    <div class="bg-white rounded-xl border-2 ${taskBorderClass(t)} ${isDone ? "bg-emerald-50/40" : ""} px-4 py-3.5">
+    <div onclick="openTaskDetailModal('${t.id}')" class="bg-white rounded-xl border-2 ${taskBorderClass(t)} ${isDone ? "bg-emerald-50/40" : ""} px-4 py-3.5 cursor-pointer hover:shadow-md transition">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -177,14 +177,14 @@ function taskRowHtml(t) {
             ${pendingExt ? `<span class="text-amber-600 font-medium">Đã gửi yêu cầu gia hạn → ${formatDateVN(pendingExt.new_due_date)} (chờ duyệt)</span>` : ""}
           </div>
         </div>
-        <div class="flex flex-col items-end gap-2 shrink-0">
+        <div onclick="event.stopPropagation()" class="flex flex-col items-end gap-2 shrink-0">
           <select onchange="quickChangeStatus('${t.id}', this.value)" class="text-xs font-medium border rounded-full px-2.5 py-1 ${STATUS_COLOR[t.status]} border-transparent">
             ${Object.keys(STATUS_LABEL)
               .filter((s) => isAdmin() || s !== "done")
               .map((s) => `<option value="${s}" ${s === t.status ? "selected" : ""}>${STATUS_LABEL[s]}</option>`)
               .join("")}
           </select>
-          <div class="flex gap-1.5">
+          <div class="flex gap-1.5 flex-wrap justify-end">
             <button onclick="openNotesModal('${t.id}')" class="text-xs px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-1">
               Ghi chú${noteCount ? ` (${noteCount})` : ""}
             </button>
@@ -245,8 +245,8 @@ function kanbanCardHtml(t) {
   const pendingExt = store.extensionRequests.find((r) => r.task_id === t.id && r.status === "pending");
 
   return `
-    <div draggable="true" ondragstart="onKanbanDragStart(event, '${t.id}')"
-      class="bg-white rounded-xl border-2 ${taskBorderClass(t)} px-3.5 py-3 cursor-grab shadow-sm hover:shadow-md transition">
+    <div draggable="true" ondragstart="onKanbanDragStart(event, '${t.id}')" onclick="openTaskDetailModal('${t.id}')"
+      class="bg-white rounded-xl border-2 ${taskBorderClass(t)} px-3.5 py-3 cursor-pointer shadow-sm hover:shadow-md transition">
       <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
         <span class="flex items-center gap-1 text-[11px] font-medium text-indigo-500">
           <span class="w-1.5 h-1.5 rounded-full ${projectDotColor(t.project_id)} shrink-0"></span>
@@ -266,7 +266,7 @@ function kanbanCardHtml(t) {
           </div>
         </div>
       </div>
-      <div class="flex gap-1.5 mt-2.5">
+      <div class="flex gap-1.5 mt-2.5" onclick="event.stopPropagation()">
         <button onclick="openNotesModal('${t.id}')" class="flex-1 text-[11px] px-2 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50">Ghi chú</button>
         ${
           isAdmin() && t.status === "waiting_confirm"
@@ -367,6 +367,71 @@ async function confirmTaskDone(taskId) {
   } catch (err) {
     toast("Không thể xác nhận", "error");
   }
+}
+
+// ============================================================
+// CHI TIẾT TASK — modal dùng chung, mở được từ MỌI nơi hiển thị task
+// (Danh sách, Kanban, Phân công, Lịch). Chỉ xem + có nút "Sửa" riêng
+// để chuyển qua modal sửa (openEditTaskModal, ở assignment-view.js).
+// ============================================================
+function openTaskDetailModal(taskId) {
+  const task = store.tasks.find((t) => t.id === taskId);
+  if (!task) return toast("Không tìm thấy task (có thể đã bị xóa)", "error");
+
+  const project = getProject(task.project_id);
+  const overdue = isOverdue(task);
+  const noteCount = store.notes.filter((n) => n.task_id === task.id).length;
+  const pendingExt = store.extensionRequests.find((r) => r.task_id === task.id && r.status === "pending");
+  const canEditStatus = task.status !== "done" || isAdmin();
+
+  openModal(`
+    <div class="p-5">
+      <div class="flex items-start justify-between gap-3 mb-1">
+        <h3 class="font-semibold text-slate-800 leading-snug">${escapeHtml(task.title)}</h3>
+        <span class="text-[11px] px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLOR[task.status]}">${STATUS_LABEL[task.status]}</span>
+      </div>
+      <p class="text-xs text-slate-400 mb-4 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full ${projectDotColor(task.project_id)}"></span>
+        ${escapeHtml(project ? project.name : "Không có dự án")}
+        ${task.task_type === "dinh_ky" ? " · Định kỳ" : ""}
+      </p>
+
+      ${task.description ? `<p class="text-sm text-slate-600 mb-4 whitespace-pre-wrap">${escapeHtml(task.description)}</p>` : ""}
+
+      <div class="space-y-2 text-sm bg-slate-50 rounded-xl p-3.5">
+        <div class="flex justify-between gap-3"><span class="text-slate-400">Hạn chót</span><span class="font-medium ${overdue ? "text-rose-600" : "text-slate-700"}">${formatDateVN(task.due_date)}${overdue ? " · Trễ hạn" : ""}</span></div>
+        <div class="flex justify-between gap-3"><span class="text-slate-400">Phụ trách chính</span><span class="font-medium text-slate-700">${escapeHtml(memberName(task.main_assignee_id))}</span></div>
+        ${task.support_assignee_ids?.length ? `<div class="flex justify-between gap-3"><span class="text-slate-400">Hỗ trợ</span><span class="font-medium text-slate-700 text-right">${task.support_assignee_ids.map(memberName).map(escapeHtml).join(", ")}</span></div>` : ""}
+        ${pendingExt ? `<div class="flex justify-between gap-3"><span class="text-slate-400">Gia hạn</span><span class="font-medium text-amber-600 text-right">Chờ duyệt → ${formatDateVN(pendingExt.new_due_date)}</span></div>` : ""}
+      </div>
+
+      ${
+        canEditStatus
+          ? `<div class="mt-4">
+              <label class="block text-xs font-medium text-slate-500 mb-1">Đổi trạng thái</label>
+              <select onchange="quickChangeStatus('${task.id}', this.value); closeModal();" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                ${Object.keys(STATUS_LABEL)
+                  .filter((s) => isAdmin() || s !== "done")
+                  .map((s) => `<option value="${s}" ${s === task.status ? "selected" : ""}>${STATUS_LABEL[s]}</option>`)
+                  .join("")}
+              </select>
+            </div>`
+          : ""
+      }
+
+      <div class="flex flex-wrap justify-end gap-2 mt-5">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Đóng</button>
+        <button onclick="closeModal(); openNotesModal('${task.id}')" class="px-4 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">
+          Ghi chú${noteCount ? ` (${noteCount})` : ""}
+        </button>
+        ${
+          !["done", "cancelled"].includes(task.status) && !pendingExt
+            ? `<button onclick="closeModal(); openExtensionModal('${task.id}')" class="px-4 py-2 rounded-lg text-sm font-medium border border-amber-200 text-amber-700 hover:bg-amber-50">Gia hạn</button>`
+            : ""
+        }
+        <button onclick="closeModal(); openEditTaskModal('${task.id}')" class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">Sửa task</button>
+      </div>
+    </div>`);
 }
 
 // ============================================================
