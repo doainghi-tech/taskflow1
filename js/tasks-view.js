@@ -7,6 +7,9 @@
 
 let tasksViewState = { memberId: null, filter: "today" };
 
+// Giá trị đặc biệt cho lựa chọn "Tất cả thành viên" trong dropdown chọn xem
+const ALL_MEMBERS_VALUE = "__all__";
+
 const TASK_FILTERS = [
   { key: "today", label: "Hạn hôm nay", fn: isDueToday },
   { key: "tomorrow", label: "Hạn ngày mai", fn: isDueTomorrow },
@@ -66,13 +69,14 @@ function renderTasksView(container, params) {
   }
   const memberId = tasksViewState.memberId;
 
-  const allMemberTasks = tasksForMember(memberId).filter((t) => t.status !== "cancelled");
+  const allMemberTasks = getTasksForSelection(memberId, activeMembers).filter((t) => t.status !== "cancelled");
 
   container.innerHTML = `
     <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
       <h1 class="text-lg font-semibold text-slate-800">Task của thành viên</h1>
       <div class="flex items-center gap-2">
         <select id="member-select" class="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="${ALL_MEMBERS_VALUE}" ${memberId === ALL_MEMBERS_VALUE ? "selected" : ""}>Tất cả thành viên</option>
           ${activeMembers.map((m) => `<option value="${m.id}" ${m.id === memberId ? "selected" : ""}>${escapeHtml(m.name)}</option>`).join("")}
         </select>
       </div>
@@ -98,7 +102,24 @@ function renderTasksView(container, params) {
   });
 }
 
-// Chú giải màu dự án, để người dùng biết chấm màu nào ứng với dự án nào
+// Lấy danh sách task theo lựa chọn trong dropdown:
+// - 1 thành viên cụ thể: dùng tasksForMember như cũ
+// - "Tất cả thành viên": gộp task của mọi thành viên đang active, loại trùng theo id
+//   (1 task có thể vừa là "Chính" của người này, vừa "Hỗ trợ" cho người khác)
+function getTasksForSelection(memberId, activeMembers) {
+  if (memberId !== ALL_MEMBERS_VALUE) return tasksForMember(memberId);
+  const seen = new Set();
+  const result = [];
+  activeMembers.forEach((m) => {
+    tasksForMember(m.id).forEach((t) => {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        result.push(t);
+      }
+    });
+  });
+  return result;
+}
 function projectLegendHtml(tasks) {
   const projectIds = [...new Set(tasks.map((t) => t.project_id).filter(Boolean))];
   if (!projectIds.length) return "";
