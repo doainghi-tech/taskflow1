@@ -58,6 +58,44 @@ function isOverdue(task) {
   return task.due_date < todayStr() && !["done", "cancelled"].includes(task.status);
 }
 
+// ---------- TRỄ HẠN: số ngày trễ (đang trễ HOẶC đã hoàn thành trễ) ----------
+// Số ngày chênh giữa 2 chuỗi ngày "yyyy-mm-dd" (toStr - fromStr), luôn >= 0
+// nếu toStr nằm sau fromStr.
+function diffDaysStr(fromStr, toStr) {
+  return Math.round((strToDate(toStr) - strToDate(fromStr)) / 86400000);
+}
+
+// Trả về thông tin trễ hạn của 1 task, hoặc null nếu không trễ:
+// - Task chưa xong & đang trễ: { days, finished: false } — số ngày trễ tính tới hôm nay
+// - Task đã hoàn thành nhưng hoàn thành SAU hạn: { days, finished: true } — số ngày trễ
+//   tính tới ngày hoàn thành. Giữ lại thông tin này dù task đã chuyển sang "Hoàn thành",
+//   để biết task từng trễ bao lâu.
+function overdueInfo(task) {
+  if (!task || !task.due_date) return null;
+  if (!["done", "cancelled"].includes(task.status)) {
+    if (isOverdue(task)) return { days: diffDaysStr(task.due_date, todayStr()), finished: false };
+    return null;
+  }
+  if (task.status === "done" && task.completed_at) {
+    const completedDate = task.completed_at.slice(0, 10);
+    if (completedDate > task.due_date) {
+      return { days: diffDaysStr(task.due_date, completedDate), finished: true };
+    }
+  }
+  return null;
+}
+
+// Dòng chú thích nhỏ (HTML) hiển thị số ngày trễ — dùng chung cho mọi nơi
+// hiển thị task (danh sách, kanban, modal chi tiết).
+function overdueCaptionHtml(task, extraClass) {
+  const info = overdueInfo(task);
+  if (!info) return "";
+  const dayWord = info.days === 1 ? "1 ngày" : `${info.days} ngày`;
+  const text = info.finished ? `Hoàn thành trễ ${dayWord} so với hạn` : `Đang trễ ${dayWord}`;
+  const color = info.finished ? "text-rose-500" : "text-rose-600 font-medium";
+  return `<p class="text-[11px] ${color} mt-1 ${extraClass || ""}">${text}</p>`;
+}
+
 function isDueToday(task) {
   return task.due_date === todayStr() && !["done", "cancelled"].includes(task.status);
 }
