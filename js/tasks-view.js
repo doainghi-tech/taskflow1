@@ -202,7 +202,6 @@ function taskRowHtml(t) {
         <div onclick="event.stopPropagation()" class="flex flex-col items-end gap-2 shrink-0">
           <select onchange="quickChangeStatus('${t.id}', this.value)" class="text-xs font-medium border rounded-full px-2.5 py-1 ${STATUS_COLOR[t.status]} border-transparent">
             ${Object.keys(STATUS_LABEL)
-              .filter((s) => isAdmin() || s !== "done")
               .map((s) => `<option value="${s}" ${s === t.status ? "selected" : ""}>${STATUS_LABEL[s]}</option>`)
               .join("")}
           </select>
@@ -310,9 +309,6 @@ async function onKanbanDrop(e, newStatus) {
   e.preventDefault();
   const taskId = e.dataTransfer.getData("text/task-id");
   if (!taskId) return;
-  if (newStatus === "done" && !isAdmin()) {
-    return toast("Chỉ quản lý mới xác nhận hoàn thành. Hãy chuyển task sang \"Chờ xác nhận\".", "error");
-  }
   await quickChangeStatus(taskId, newStatus);
 }
 
@@ -321,10 +317,6 @@ async function onKanbanDrop(e, newStatus) {
 // ============================================================
 async function quickChangeStatus(taskId, status) {
   const task = store.tasks.find((t) => t.id === taskId);
-  if (status === "done" && !isAdmin()) {
-    toast("Chỉ quản lý mới xác nhận hoàn thành. Hãy chuyển sang \"Chờ xác nhận\".", "error");
-    return navigateTo(currentView);
-  }
   const oldStatus = task ? task.status : null;
   try {
     const payload = { status };
@@ -436,7 +428,6 @@ function openTaskDetailModal(taskId) {
               <label class="block text-xs font-medium text-slate-500 mb-1">Đổi trạng thái</label>
               <select onchange="quickChangeStatus('${task.id}', this.value); closeModal();" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 ${Object.keys(STATUS_LABEL)
-                  .filter((s) => isAdmin() || s !== "done")
                   .map((s) => `<option value="${s}" ${s === task.status ? "selected" : ""}>${STATUS_LABEL[s]}</option>`)
                   .join("")}
               </select>
