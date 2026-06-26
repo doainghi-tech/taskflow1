@@ -295,14 +295,20 @@ function handleMarkAllNotificationsRead_(p) {
   if (lastRow < 2) return { updated: 0 };
   var recipientCol = headers.indexOf("recipient_id") + 1;
   var readCol = headers.indexOf("is_read") + 1;
-  var ids = sh.getRange(2, recipientCol, lastRow - 1, 1).getValues();
+  var numRows = lastRow - 1;
+  // Đọc gộp 1 lần cả 2 cột cần dùng (thay vì gọi getValues/setValue riêng từng dòng
+  // trong vòng lặp — mỗi lệnh Sheet API trong Apps Script có overhead riêng, gọi
+  // hàng trăm lần sẽ rất chậm so với đọc/ghi 1 lần cho cả vùng).
+  var recipientValues = sh.getRange(2, recipientCol, numRows, 1).getValues();
+  var readValues = sh.getRange(2, readCol, numRows, 1).getValues();
   var updated = 0;
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]) === String(p.recipientId)) {
-      sh.getRange(i + 2, readCol, 1, 1).setValue(true);
+  for (var i = 0; i < numRows; i++) {
+    if (String(recipientValues[i][0]) === String(p.recipientId) && readValues[i][0] !== true) {
+      readValues[i][0] = true;
       updated++;
     }
   }
+  if (updated > 0) sh.getRange(2, readCol, numRows, 1).setValues(readValues);
   return { updated: updated };
 }
 
@@ -407,8 +413,11 @@ function deleteRowsWhere_(name, field, value) {
   var col = headers.indexOf(field) + 1;
   var lastRow = sh.getLastRow();
   if (lastRow < 2) return;
-  for (var r = lastRow; r >= 2; r--) {
-    var v = sh.getRange(r, col, 1, 1).getValue();
-    if (String(v) === String(value)) sh.deleteRow(r);
+  // Đọc gộp 1 lần cả cột cần lọc (thay vì gọi getValue() riêng cho từng dòng trong
+  // vòng lặp — xem giải thích ở handleMarkAllNotificationsRead_), sau đó mới xóa
+  // từng dòng khớp điều kiện (vẫn phải xóa từ dưới lên để không lệch chỉ số dòng).
+  var colValues = sh.getRange(2, col, lastRow - 1, 1).getValues();
+  for (var r = colValues.length - 1; r >= 0; r--) {
+    if (String(colValues[r][0]) === String(value)) sh.deleteRow(r + 2);
   }
 }
