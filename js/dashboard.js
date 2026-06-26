@@ -3,7 +3,7 @@
 // Thêm: bộ lọc khoảng thời gian, biểu đồ tiến độ, chỉ số hiệu suất
 // ============================================================
 
-let dashboardState = { range: "30d" };
+let dashboardState = { range: "all" };
 let dashboardCharts = {}; // giữ reference Chart.js để destroy khi re-render
 
 const DASHBOARD_RANGES = [
@@ -30,8 +30,11 @@ function renderDashboardView(container) {
   const tasksInRange = store.tasks.filter((t) => t.due_date >= from && t.due_date <= to);
 
   const total = tasksInRange.length;
-  const doing = tasksInRange.filter((t) => t.status === "doing").length;
-  const waitingConfirm = tasksInRange.filter((t) => t.status === "waiting_confirm").length;
+  // "Chờ xác nhận" là một TRẠNG THÁI hiện tại (đang chờ ai đó xác nhận xong việc),
+  // không phải số liệu phát sinh "trong kỳ" — nên tính trên toàn bộ task, giống cách
+  // tính "Hạn hôm nay" / "Đang trễ hạn" bên dưới, để không bị bộ lọc thời gian ẩn đi
+  // những task đang thực sự cần xử lý.
+  const waitingConfirm = store.tasks.filter((t) => t.status === "waiting_confirm").length;
   const done = tasksInRange.filter((t) => t.status === "done").length;
   const overdue = store.tasks.filter(isOverdue).length; // luôn tính trên toàn bộ, không phụ thuộc khoảng lọc
   const dueToday = store.tasks.filter(isDueToday).length;
@@ -93,7 +96,7 @@ function renderDashboardView(container) {
       ${statCard("Hoàn thành (kỳ)", done, "text-emerald-700", "bg-emerald-50")}
       ${statCard("Đang trễ hạn", overdue, "text-rose-700", "bg-rose-50")}
     </div>
-    <p class="text-[11px] text-slate-400 mb-6">* Các ô trên đếm theo <span class="font-medium">hạn chót nằm trong khoảng đã chọn</span> ở góc trên — khác với "Đang xử lý" ở từng thẻ thành viên (đếm toàn bộ task chưa xong, không theo khoảng thời gian). Chọn "Toàn bộ" để xem đầy đủ.</p>
+    <p class="text-[11px] text-slate-400 mb-6">* "Task trong kỳ" và "Hoàn thành (kỳ)" đếm theo <span class="font-medium">hạn chót nằm trong khoảng đã chọn</span> ở góc trên. Các ô còn lại ("Hạn hôm nay", "Chờ xác nhận", "Đang trễ hạn") và "Đang xử lý" ở từng thẻ thành viên là số liệu <span class="font-medium">hiện tại</span>, không phụ thuộc khoảng thời gian đang chọn.</p>
 
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
