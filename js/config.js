@@ -9,7 +9,7 @@
 //    Bấm Deploy, copy "Web app URL" (dạng .../exec)
 // 5. Dán URL đó thay vào dòng dưới đây
 // ============================================================
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyC75miCI8UQpe-6VPFif3X-DHkQEuLAZfLVd7DAe5V1wpZxRxykqZiiRGjGLzpCU7kUg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzQG6s18MeUmsO5PFYpFPtkKYtu3U19es6QHFp6kQ4x6ZsV33gA4s0cT92Pt6GMivWsvA/exec";
 
 // ---------- HÀM GỌI APPS SCRIPT ----------
 // GET dùng để đọc dữ liệu (list / getAllData) — không bị vướng CORS.
