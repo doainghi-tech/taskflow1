@@ -186,8 +186,12 @@ function navigateTo(viewKey, params) {
   if (fn) fn(container, params);
 }
 
-async function refreshAndRerender() {
-  await loadAllData();
+// Dùng sau MỌI hành động nhỏ (đổi trạng thái, thêm ghi chú, tạo task...): chỉ tải lại
+// dữ liệu mới nhất để hiển thị cho nhanh, không chạy lại việc "dọn lịch" định kỳ +
+// ghi nhận trễ hạn (xem giải thích trong loadAllData ở store.js). Truyền { full: true }
+// (dùng ở nút "Làm mới" tay) để chạy đầy đủ như khi mở app.
+async function refreshAndRerender(opts = {}) {
+  await loadAllData(opts.full ? {} : { skipHousekeeping: true });
   renderNav();
   navigateTo(currentView);
   refreshNotificationBadge();
@@ -201,7 +205,7 @@ async function handleManualRefresh(btn) {
   btn.disabled = true;
   btn.classList.add("animate-spin");
   try {
-    await refreshAndRerender();
+    await refreshAndRerender({ full: true });
   } catch (err) {
     toast("Không thể làm mới dữ liệu", "error");
   } finally {
