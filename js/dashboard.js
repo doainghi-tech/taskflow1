@@ -43,9 +43,11 @@ function renderDashboardView(container) {
   const doneOnTime = tasksInRange.filter((t) => t.status === "done" && t.completed_at && t.completed_at.slice(0, 10) <= t.due_date).length;
   const onTimeRate = done > 0 ? Math.round((doneOnTime / done) * 100) : null;
 
-  const activeMembers = store.members.filter((m) => m.is_active !== false);
+  // Quản trị viên không được giao task (vai trò của họ là theo dõi & đánh giá),
+  // nên không đưa vào mục đo lường tiến độ theo thành viên dưới đây.
+  const trackedMembers = store.members.filter((m) => m.is_active !== false && m.role !== "admin");
 
-  const memberRows = activeMembers
+  const memberRows = trackedMembers
     .map((m) => {
       const mineAll = tasksForMember(m.id);
       const mineInRange = mineAll.filter((t) => t.due_date >= from && t.due_date <= to);
@@ -190,10 +192,10 @@ function memberCardHtml(r) {
 
       <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
         <span>Hoàn thành trong kỳ</span>
-        <span class="font-medium ${r.completionRate >= 80 ? "text-emerald-600" : r.completionRate >= 50 ? "text-amber-600" : "text-slate-500"}">${r.total ? r.completionRate + "%" : "—"}</span>
+        <span class="font-medium ${!r.total ? "text-slate-400" : r.completionRate >= 80 ? "text-emerald-600" : r.completionRate >= 50 ? "text-amber-600" : "text-slate-500"}">${r.total ? r.completionRate + "%" : "Chưa có task"}</span>
       </div>
       <div class="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mb-3">
-        <div class="h-full ${barColor} rounded-full" style="width:${r.total ? r.completionRate : 0}%"></div>
+        ${r.total ? `<div class="h-full ${barColor} rounded-full" style="width:${r.completionRate}%"></div>` : ""}
       </div>
 
       <div class="grid grid-cols-3 gap-1.5 text-center">
