@@ -24,7 +24,7 @@ function memberName(id) {
   return m ? m.name : "—";
 }
 
-async function loadAllData() {
+async function loadAllData(opts = {}) {
   // 1 lần gọi duy nhất tới Apps Script, lấy về toàn bộ dữ liệu từ Google Sheet
   const bundle = await apiGetAllData();
   store.members = bundle.members;
@@ -35,8 +35,15 @@ async function loadAllData() {
   store.overdueLogs = bundle.overdueLogs;
   store.notifications = bundle.notifications || [];
 
-  await generateUpcomingRecurringOccurrences();
-  await recordNewOverdueTasks();
+  // Việc "dọn lịch" (sinh task định kỳ sắp tới + ghi nhận task mới trễ hạn) không
+  // phụ thuộc vào hành động vừa thực hiện (đổi trạng thái, thêm ghi chú...), nên
+  // KHÔNG cần chạy lại sau mỗi hành động nhỏ — chỉ tốn thêm round-trip gọi Apps
+  // Script (vốn đã chậm) mà không mang lại lợi ích tức thời nào. Chỉ chạy đầy đủ
+  // khi mở app (bootApp) hoặc khi người dùng bấm "Làm mới" tay.
+  if (!opts.skipHousekeeping) {
+    await generateUpcomingRecurringOccurrences();
+    await recordNewOverdueTasks();
+  }
 }
 
 // ---------- SINH TASK ĐỊNH KỲ TIẾP THEO ----------
@@ -94,10 +101,16 @@ async function recordNewOverdueTasks() {
   }));
   const createdLogs = await apiCreateOverdueLogs(logs);
   store.overdueLogs.push(...createdLogs);
-  for (const t of newlyOverdue) {
-    await apiUpdateTask(t.id, { is_overdue_recorded: true });
-    t.is_overdue_recorded = true;
-  }
+  // Đánh dấu is_overdue_recorded cho từng task — gọi SONG SONG (Promise.all) thay vì
+  // tuần tự từng cái một như trước. Apps Script có độ trễ riêng cho mỗi lần gọi, nên
+  // chờ tuần tự N task sẽ tốn ~N lần độ trễ đó; gọi song song giúp tổng thời gian chờ
+  // gần như chỉ còn bằng 1 lần độ trễ, bất kể có bao nhiêu task vừa trễ hạn.
+  await Promise.all(
+    newlyOverdue.map(async (t) => {
+      await apiUpdateTask(t.id, { is_overdue_recorded: true });
+      t.is_overdue_recorded = true;
+    })
+  );
 }
 
 function tasksForMember(memberId) {
