@@ -36,6 +36,7 @@ function renderDashboardView(container) {
   const overdue = store.tasks.filter(isOverdue).length; // luôn tính trên toàn bộ, không phụ thuộc khoảng lọc
   const dueToday = store.tasks.filter(isDueToday).length;
 
+  // "Đúng hạn" = hoàn thành (completed_at) vào ngày <= due_date.
   const doneOnTime = tasksInRange.filter((t) => t.status === "done" && t.completed_at && t.completed_at.slice(0, 10) <= t.due_date).length;
   const onTimeRate = done > 0 ? Math.round((doneOnTime / done) * 100) : null;
 
@@ -47,22 +48,32 @@ function renderDashboardView(container) {
       const mineInRange = mineAll.filter((t) => t.due_date >= from && t.due_date <= to);
       const mineActive = mineAll.filter((t) => !["done", "cancelled"].includes(t.status));
       const mineOverdue = mineAll.filter(isOverdue);
-      const mineDoneInRange = mineInRange.filter((t) => t.status === "done").length;
+      const mineDoneInRange = mineInRange.filter((t) => t.status === "done");
       const overdueLogCount = overdueLogCountForMember(m.id);
-      const completionRate = mineInRange.length ? Math.round((mineDoneInRange / mineInRange.length) * 100) : 0;
+      // % hoàn thành: trong số task có hạn rơi vào kỳ lọc, bao nhiêu đã xong (bất kể đúng/trễ hạn)
+      const completionRate = mineInRange.length ? Math.round((mineDoneInRange.length / mineInRange.length) * 100) : 0;
+      // % ĐÚNG hạn: chỉ tính trên các task ĐÃ hoàn thành — bao nhiêu % trong số đó xong không trễ.
+      // Đây là chỉ số khác hẳn completionRate (đã xong hay chưa) nên không được gộp chung / dùng thay cho nhau.
+      const doneOnTimeCount = mineDoneInRange.filter((t) => t.completed_at && t.completed_at.slice(0, 10) <= t.due_date).length;
+      const onTimeRateMember = mineDoneInRange.length ? Math.round((doneOnTimeCount / mineDoneInRange.length) * 100) : null;
       return {
         m,
         total: mineInRange.length,
         active: mineActive.length,
         overdue: mineOverdue.length,
-        done: mineDoneInRange,
+        done: mineDoneInRange.length,
         overdueLogCount,
         completionRate,
+        onTimeRateMember,
       };
     })
     .sort((a, b) => b.overdue - a.overdue || b.active - a.active);
 
-  const topPerformer = memberRows.filter((r) => r.total > 0).sort((a, b) => b.completionRate - a.completionRate)[0];
+  // "Xuất sắc nhất kỳ" phải dựa trên tỷ lệ ĐÚNG HẠN (không phải chỉ là đã-xong-hay-chưa),
+  // và cần ít nhất 1 task hoàn thành trong kỳ để có dữ liệu so sánh.
+  const topPerformer = memberRows
+    .filter((r) => r.done > 0 && r.onTimeRateMember !== null)
+    .sort((a, b) => b.onTimeRateMember - a.onTimeRateMember || b.done - a.done)[0];
 
   container.innerHTML = `
     <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -89,6 +100,43 @@ function renderDashboardView(container) {
       ${statCard("Đang trễ hạn", overdue, "text-rose-700", "bg-rose-50")}
     </div>
 
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+        <h2 class="font-medium text-slate-800">Tiến độ theo thành viên</h2>
+        <span class="text-xs text-slate-400">Sắp xếp theo số task đang trễ · cột "trong kỳ" theo bộ lọc thời gian</span>
+      </div>
+      <div class="p-4">
+        ${
+          memberRows.length
+            ? `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${memberRows.map(memberCardHtml).join("")}</div>`
+            : `<p class="text-center text-sm text-slate-400 py-8">Chưa có thành viên nào.</p>`
+        }
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+      ${insightCard(
+        "Tỷ lệ hoàn thành đúng hạn",
+        onTimeRate === null ? "—" : `${onTimeRate}%`,
+        onTimeRate === null
+          ? "Chưa có task hoàn thành trong kỳ"
+          : `${doneOnTime}/${done} task hoàn thành đúng hạn${doneOnTime < done ? ` · ${done - doneOnTime} task xong trễ` : ""}`,
+        onTimeRate === null ? "text-slate-400" : onTimeRate >= 80 ? "text-emerald-600" : onTimeRate >= 50 ? "text-amber-600" : "text-rose-600"
+      )}
+      ${insightCard(
+        "Thành viên xuất sắc nhất kỳ",
+        topPerformer ? topPerformer.m.name : "—",
+        topPerformer ? `${topPerformer.onTimeRateMember}% hoàn thành đúng hạn (${topPerformer.done} task)` : "Chưa có task hoàn thành trong kỳ để so sánh",
+        "text-indigo-600"
+      )}
+      ${insightCard(
+        "Tổng số lần từng trễ hạn (lịch sử)",
+        store.overdueLogs.length,
+        "Tính từ trước tới nay, không theo khoảng lọc",
+        store.overdueLogs.length > 5 ? "text-rose-600" : "text-slate-600"
+      )}
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
       <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-3">
@@ -100,73 +148,6 @@ function renderDashboardView(container) {
       <div class="bg-white rounded-2xl border border-slate-200 p-5">
         <h2 class="font-medium text-slate-800 text-sm mb-3">Tỷ lệ trạng thái</h2>
         <div class="h-64"><canvas id="chart-status"></canvas></div>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-      ${insightCard(
-        "Tỷ lệ hoàn thành đúng hạn",
-        onTimeRate === null ? "—" : `${onTimeRate}%`,
-        onTimeRate === null ? "Chưa có task hoàn thành trong kỳ" : onTimeRate >= 80 ? "Team đang làm rất tốt" : onTimeRate >= 50 ? "Cần cải thiện tốc độ xử lý" : "Cần chú ý — nhiều task trễ hạn",
-        onTimeRate === null ? "text-slate-400" : onTimeRate >= 80 ? "text-emerald-600" : onTimeRate >= 50 ? "text-amber-600" : "text-rose-600"
-      )}
-      ${insightCard(
-        "Thành viên xuất sắc nhất kỳ",
-        topPerformer ? topPerformer.m.name : "—",
-        topPerformer ? `${topPerformer.completionRate}% hoàn thành đúng hạn` : "Chưa đủ dữ liệu",
-        "text-indigo-600"
-      )}
-      ${insightCard(
-        "Tổng số lần từng trễ hạn (lịch sử)",
-        store.overdueLogs.length,
-        "Tính từ trước tới nay, không theo khoảng lọc",
-        store.overdueLogs.length > 5 ? "text-rose-600" : "text-slate-600"
-      )}
-    </div>
-
-    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h2 class="font-medium text-slate-800">Tiến độ theo thành viên</h2>
-        <span class="text-xs text-slate-400">Sắp xếp theo số task đang trễ · cột "trong kỳ" theo bộ lọc thời gian</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-xs text-slate-400 border-b border-slate-100">
-              <th class="text-left font-medium px-5 py-2.5">Thành viên</th>
-              <th class="text-right font-medium px-3 py-2.5">Task trong kỳ</th>
-              <th class="text-right font-medium px-3 py-2.5">Đang xử lý</th>
-              <th class="text-right font-medium px-3 py-2.5">Hoàn thành (kỳ)</th>
-              <th class="text-right font-medium px-3 py-2.5">% Hoàn thành</th>
-              <th class="text-right font-medium px-3 py-2.5">Đang trễ</th>
-              <th class="text-right font-medium px-5 py-2.5">Từng trễ (lịch sử)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${memberRows
-              .map(
-                (r) => `
-              <tr class="border-b border-slate-50 hover:bg-slate-50 cursor-pointer" onclick="navigateTo('tasks', {memberId:'${r.m.id}'})">
-                <td class="px-5 py-3">
-                  <div class="flex items-center gap-2.5">
-                    <div class="w-7 h-7 rounded-full ${avatarColor(r.m.id)} text-white text-xs font-semibold flex items-center justify-center">${initials(r.m.name)}</div>
-                    <span class="font-medium text-slate-700">${escapeHtml(r.m.name)}</span>
-                  </div>
-                </td>
-                <td class="text-right px-3 py-3 text-slate-500">${r.total}</td>
-                <td class="text-right px-3 py-3 text-slate-500">${r.active}</td>
-                <td class="text-right px-3 py-3 text-emerald-600">${r.done}</td>
-                <td class="text-right px-3 py-3">
-                  <span class="font-medium ${r.completionRate >= 80 ? "text-emerald-600" : r.completionRate >= 50 ? "text-amber-600" : "text-slate-400"}">${r.total ? r.completionRate + "%" : "—"}</span>
-                </td>
-                <td class="text-right px-3 py-3 font-semibold ${r.overdue > 0 ? "text-rose-600" : "text-slate-300"}">${r.overdue}</td>
-                <td class="text-right px-5 py-3 text-slate-400">${r.overdueLogCount}</td>
-              </tr>`
-              )
-              .join("")}
-          </tbody>
-        </table>
-        ${!memberRows.length ? `<p class="text-center text-sm text-slate-400 py-8">Chưa có thành viên nào.</p>` : ""}
       </div>
     </div>
   `;
@@ -201,6 +182,45 @@ function insightCard(label, value, subtext, valueColor) {
     </div>`;
 }
 
+// ---------- THẺ THÀNH VIÊN (trực quan: avatar + thanh tiến độ + chỉ số) ----------
+function memberCardHtml(r) {
+  const barColor = r.completionRate >= 80 ? "bg-emerald-500" : r.completionRate >= 50 ? "bg-amber-500" : "bg-slate-300";
+  return `
+    <div onclick="navigateTo('tasks', {memberId:'${r.m.id}'})"
+      class="rounded-xl border ${r.overdue > 0 ? "border-rose-200" : "border-slate-200"} px-4 py-3.5 cursor-pointer hover:shadow-md transition bg-white">
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-full ${avatarColor(r.m.id)} text-white text-xs font-semibold flex items-center justify-center shrink-0">${initials(r.m.name)}</div>
+          <span class="font-medium text-slate-700 text-sm truncate">${escapeHtml(r.m.name)}</span>
+        </div>
+        ${r.overdue > 0 ? `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 shrink-0">Trễ ${r.overdue}</span>` : `<span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 shrink-0">Ổn</span>`}
+      </div>
+
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <span>Hoàn thành trong kỳ</span>
+        <span class="font-medium ${r.completionRate >= 80 ? "text-emerald-600" : r.completionRate >= 50 ? "text-amber-600" : "text-slate-500"}">${r.total ? r.completionRate + "%" : "—"}</span>
+      </div>
+      <div class="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mb-3">
+        <div class="h-full ${barColor} rounded-full" style="width:${r.total ? r.completionRate : 0}%"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-1.5 text-center">
+        <div>
+          <p class="text-sm font-semibold text-slate-700">${r.active}</p>
+          <p class="text-[10px] text-slate-400">Đang xử lý</p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-emerald-600">${r.done}</p>
+          <p class="text-[10px] text-slate-400">Đã xong (kỳ)</p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-slate-400">${r.overdueLogCount}</p>
+          <p class="text-[10px] text-slate-400">Từng trễ</p>
+        </div>
+      </div>
+    </div>`;
+}
+
 // ---------- BIỂU ĐỒ ----------
 function renderDashboardCharts(tasksInRange, from, to) {
   if (typeof Chart === "undefined") return; // Chart.js chưa load được (vd. mất mạng) — bỏ qua, phần còn lại vẫn dùng được
@@ -223,7 +243,13 @@ function renderDashboardCharts(tasksInRange, from, to) {
   const completedByDay = days.map(
     (d) => store.tasks.filter((t) => t.status === "done" && t.completed_at && t.completed_at.slice(0, 10) === d).length
   );
-  const createdByDay = days.map((d) => store.tasks.filter((t) => t.created_at && t.created_at.slice(0, 10) === d).length);
+  // "Task mới tạo" chỉ tính task do người dùng tạo trực tiếp, KHÔNG tính các occurrence
+  // được hệ thống tự sinh ra cho task định kỳ (parent_recurring_id) — vì chúng được tạo
+  // hàng loạt cùng lúc với hạn nằm ở tương lai, tính vào đây sẽ tạo ra cột tăng vọt giả
+  // ("vừa tạo 12 task") trong khi thực tế đó chỉ là việc dọn lịch định kỳ tự động.
+  const createdByDay = days.map(
+    (d) => store.tasks.filter((t) => t.created_at && t.created_at.slice(0, 10) === d && !t.parent_recurring_id).length
+  );
 
   const progressCtx = document.getElementById("chart-progress");
   if (progressCtx) {
