@@ -69,12 +69,6 @@ function renderDashboardView(container) {
     })
     .sort((a, b) => b.overdue - a.overdue || b.active - a.active);
 
-  // "Xuất sắc nhất kỳ" phải dựa trên tỷ lệ ĐÚNG HẠN (không phải chỉ là đã-xong-hay-chưa),
-  // và cần ít nhất 1 task hoàn thành trong kỳ để có dữ liệu so sánh.
-  const topPerformer = memberRows
-    .filter((r) => r.done > 0 && r.onTimeRateMember !== null)
-    .sort((a, b) => b.onTimeRateMember - a.onTimeRateMember || b.done - a.done)[0];
-
   container.innerHTML = `
     <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
       <div>
@@ -92,13 +86,14 @@ function renderDashboardView(container) {
       </div>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-1.5">
       ${statCard("Task trong kỳ", total, "text-slate-700", "bg-slate-100")}
       ${statCard("Hạn hôm nay", dueToday, "text-sky-700", "bg-sky-50")}
       ${statCard("Chờ xác nhận", waitingConfirm, "text-sky-700", "bg-sky-50")}
       ${statCard("Hoàn thành (kỳ)", done, "text-emerald-700", "bg-emerald-50")}
       ${statCard("Đang trễ hạn", overdue, "text-rose-700", "bg-rose-50")}
     </div>
+    <p class="text-[11px] text-slate-400 mb-6">* Các ô trên đếm theo <span class="font-medium">hạn chót nằm trong khoảng đã chọn</span> ở góc trên — khác với "Đang xử lý" ở từng thẻ thành viên (đếm toàn bộ task chưa xong, không theo khoảng thời gian). Chọn "Toàn bộ" để xem đầy đủ.</p>
 
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
@@ -114,7 +109,7 @@ function renderDashboardView(container) {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
       ${insightCard(
         "Tỷ lệ hoàn thành đúng hạn",
         onTimeRate === null ? "—" : `${onTimeRate}%`,
@@ -122,12 +117,6 @@ function renderDashboardView(container) {
           ? "Chưa có task hoàn thành trong kỳ"
           : `${doneOnTime}/${done} task hoàn thành đúng hạn${doneOnTime < done ? ` · ${done - doneOnTime} task xong trễ` : ""}`,
         onTimeRate === null ? "text-slate-400" : onTimeRate >= 80 ? "text-emerald-600" : onTimeRate >= 50 ? "text-amber-600" : "text-rose-600"
-      )}
-      ${insightCard(
-        "Thành viên xuất sắc nhất kỳ",
-        topPerformer ? topPerformer.m.name : "—",
-        topPerformer ? `${topPerformer.onTimeRateMember}% hoàn thành đúng hạn (${topPerformer.done} task)` : "Chưa có task hoàn thành trong kỳ để so sánh",
-        "text-indigo-600"
       )}
       ${insightCard(
         "Tổng số lần từng trễ hạn (lịch sử)",
