@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TaskFlow - Quản lý task & tiến độ team</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Đã thay Tailwind CDN (compile CSS ngay trong trình duyệt mỗi lần render — Tailwind
+       chính thức khuyến cáo KHÔNG dùng cách này ở production) bằng 1 file CSS tĩnh build
+       sẵn, chỉ chứa đúng class đang dùng. Nếu sau này thêm class Tailwind mới trong code,
+       cần build lại css/tailwind.build.css (xem README.md). -->
+  <link rel="stylesheet" href="css/tailwind.build.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,17 +17,17 @@
 <body>
   <div id="app-root"></div>
 
-  <script src="js/config.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/dashboard.js"></script>
-  <script src="js/tasks-view.js"></script>
-  <script src="js/assignment-view.js"></script>
-  <script src="js/calendar-view.js"></script>
-  <script src="js/extensions-view.js"></script>
-  <script src="js/members-view.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/config.js" defer></script>
+  <script src="js/utils.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/store.js" defer></script>
+  <script src="js/auth.js" defer></script>
+  <script src="js/dashboard.js" defer></script>
+  <script src="js/tasks-view.js" defer></script>
+  <script src="js/assignment-view.js" defer></script>
+  <script src="js/calendar-view.js" defer></script>
+  <script src="js/extensions-view.js" defer></script>
+  <script src="js/members-view.js" defer></script>
+  <script src="js/app.js" defer></script>
 </body>
 </html>
