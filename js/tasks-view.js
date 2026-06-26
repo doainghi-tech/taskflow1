@@ -197,6 +197,7 @@ function taskRowHtml(t) {
             ${t.support_assignee_ids?.length ? `<span>Hỗ trợ: ${t.support_assignee_ids.map(memberName).map(escapeHtml).join(", ")}</span>` : ""}
             ${pendingExt ? `<span class="text-amber-600 font-medium">Đã gửi yêu cầu gia hạn → ${formatDateVN(pendingExt.new_due_date)} (chờ duyệt)</span>` : ""}
           </div>
+          ${overdueCaptionHtml(t)}
         </div>
         <div onclick="event.stopPropagation()" class="flex flex-col items-end gap-2 shrink-0">
           <select onchange="quickChangeStatus('${t.id}', this.value)" class="text-xs font-medium border rounded-full px-2.5 py-1 ${STATUS_COLOR[t.status]} border-transparent">
@@ -277,6 +278,7 @@ function kanbanCardHtml(t) {
         ${overdue ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 font-medium">Trễ hạn</span>` : ""}
       </div>
       <p class="text-sm font-medium ${isDone ? "text-emerald-700 line-through" : "text-slate-800"} leading-snug">${escapeHtml(t.title)}</p>
+      ${overdueCaptionHtml(t)}
       <div class="flex items-center justify-between mt-2.5">
         <span class="text-[11px] ${overdue ? "text-rose-600 font-medium" : "text-slate-400"}">${formatDateVN(t.due_date)}</span>
         <div class="flex items-center gap-1.5">
@@ -421,10 +423,12 @@ function openTaskDetailModal(taskId) {
 
       <div class="space-y-2 text-sm bg-slate-50 rounded-xl p-3.5">
         <div class="flex justify-between gap-3"><span class="text-slate-400">Hạn chót</span><span class="font-medium ${overdue ? "text-rose-600" : "text-slate-700"}">${formatDateVN(task.due_date)}${overdue ? " · Trễ hạn" : ""}</span></div>
+        ${task.status === "done" && overdueInfo(task) ? `<div class="flex justify-between gap-3"><span class="text-slate-400">Ngày hoàn thành</span><span class="font-medium text-slate-700">${task.completed_at ? formatDateVN(task.completed_at.slice(0, 10)) : "—"}</span></div>` : ""}
         <div class="flex justify-between gap-3"><span class="text-slate-400">Phụ trách chính</span><span class="font-medium text-slate-700">${escapeHtml(memberName(task.main_assignee_id))}</span></div>
         ${task.support_assignee_ids?.length ? `<div class="flex justify-between gap-3"><span class="text-slate-400">Hỗ trợ</span><span class="font-medium text-slate-700 text-right">${task.support_assignee_ids.map(memberName).map(escapeHtml).join(", ")}</span></div>` : ""}
         ${pendingExt ? `<div class="flex justify-between gap-3"><span class="text-slate-400">Gia hạn</span><span class="font-medium text-amber-600 text-right">Chờ duyệt → ${formatDateVN(pendingExt.new_due_date)}</span></div>` : ""}
       </div>
+      ${overdueCaptionHtml(task, "px-1")}
 
       ${
         canEditStatus
