@@ -197,6 +197,16 @@ async function refreshAndRerender(opts = {}) {
   refreshNotificationBadge();
 }
 
+// Dùng sau hành động đã TỰ cập nhật store cục bộ bằng chính dữ liệu mà API của
+// hành động đó vừa trả về (vd. updateTask trả về row đã merge, createTask trả về
+// task vừa tạo) — không cần gọi lại getAllData (1.4-3.4s/lần trên Apps Script) nữa,
+// chỉ render lại UI từ store hiện có nên gần như tức thì.
+function rerenderCurrentView() {
+  renderNav();
+  navigateTo(currentView);
+  refreshNotificationBadge();
+}
+
 // Nút làm mới thủ công cạnh chuông thông báo: tải lại toàn bộ dữ liệu từ
 // Google Sheet ngay lập tức, không cần đợi vòng poll 30 giây hoặc F5 cả trang.
 async function handleManualRefresh(btn) {
