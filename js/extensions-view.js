@@ -71,13 +71,15 @@ async function reviewExtension(reqId, decision) {
   const req = store.extensionRequests.find((r) => r.id === reqId);
   const task = store.tasks.find((t) => t.id === req.task_id);
   try {
-    await apiUpdateExtensionRequest(reqId, {
+    const updatedReq = await apiUpdateExtensionRequest(reqId, {
       status: decision,
       reviewed_by: store.currentUser.id,
       reviewed_at: new Date().toISOString(),
     });
+    Object.assign(req, updatedReq);
     if (decision === "approved") {
-      await apiUpdateTask(req.task_id, { due_date: req.new_due_date, is_overdue_recorded: false });
+      const updatedTask = await apiUpdateTask(req.task_id, { due_date: req.new_due_date, is_overdue_recorded: false });
+      if (task) Object.assign(task, updatedTask);
     }
     toast(decision === "approved" ? "Đã duyệt gia hạn" : "Đã từ chối yêu cầu", "success");
     await notifyUser(
@@ -87,7 +89,7 @@ async function reviewExtension(reqId, decision) {
       `${escapeHtml(task ? task.title : "")}${decision === "approved" ? ` · Hạn mới: ${formatDateVN(req.new_due_date)}` : ""}`,
       req.task_id
     );
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Có lỗi xảy ra", "error");
   }
