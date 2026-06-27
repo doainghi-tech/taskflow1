@@ -75,10 +75,11 @@ async function submitCreateMember() {
   const role = document.getElementById("new-member-role").value;
   if (!name || !username || !password) return toast("Điền đầy đủ thông tin", "error");
   try {
-    await apiCreateMember({ name, username, password, role });
+    const created = await apiCreateMember({ name, username, password, role });
+    store.members.push(created); // thêm trực tiếp vào store, khỏi gọi lại getAllData
     closeModal();
     toast("Đã thêm thành viên", "success");
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể tạo (username đã tồn tại?)", "error");
   }
@@ -86,9 +87,11 @@ async function submitCreateMember() {
 
 async function toggleMemberActive(id, current) {
   try {
-    await apiUpdateMember(id, { is_active: !current });
+    const updated = await apiUpdateMember(id, { is_active: !current });
+    const member = store.members.find((m) => m.id === id);
+    if (member) Object.assign(member, updated);
     toast("Đã cập nhật", "success");
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Có lỗi xảy ra", "error");
   }
