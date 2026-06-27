@@ -321,7 +321,8 @@ async function quickChangeStatus(taskId, status) {
   try {
     const payload = { status };
     if (status === "done") payload.completed_at = new Date().toISOString();
-    await apiUpdateTask(taskId, payload);
+    const updated = await apiUpdateTask(taskId, payload);
+    if (task) Object.assign(task, updated); // vá lại đúng dòng task bằng kết quả API trả về, khỏi gọi lại getAllData
     toast("Đã cập nhật trạng thái", "success");
     if (status === "waiting_confirm" && task) {
       // Báo cho admin biết có task cần xác nhận hoàn thành
@@ -338,7 +339,7 @@ async function quickChangeStatus(taskId, status) {
       // trợ, trừ chính người vừa thực hiện thay đổi này.
       await notifyTaskStatusChange(task, oldStatus, status);
     }
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể cập nhật trạng thái", "error");
   }
@@ -362,12 +363,13 @@ async function notifyTaskStatusChange(task, oldStatus, newStatus) {
 async function confirmTaskDone(taskId) {
   const task = store.tasks.find((t) => t.id === taskId);
   try {
-    await apiUpdateTask(taskId, {
+    const updated = await apiUpdateTask(taskId, {
       status: "done",
       completed_at: new Date().toISOString(),
       confirmed_by: store.currentUser.id,
       confirmed_at: new Date().toISOString(),
     });
+    if (task) Object.assign(task, updated);
     toast("Đã xác nhận hoàn thành", "success");
     if (task) {
       await notifyUsers(
@@ -378,7 +380,7 @@ async function confirmTaskDone(taskId) {
         taskId
       );
     }
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể xác nhận", "error");
   }
@@ -631,7 +633,7 @@ async function submitExtensionRequest(taskId) {
   const reason = document.getElementById("ext-reason").value.trim();
   if (!newDate) return toast("Chọn hạn mới", "error");
   try {
-    await apiCreateExtensionRequest({
+    const created = await apiCreateExtensionRequest({
       task_id: taskId,
       requested_by: store.currentUser.id,
       old_due_date: task.due_date,
@@ -639,6 +641,7 @@ async function submitExtensionRequest(taskId) {
       reason,
       status: "pending",
     });
+    store.extensionRequests.unshift(created); // thêm trực tiếp vào store, khỏi gọi lại getAllData
     closeModal();
     toast("Đã gửi yêu cầu gia hạn đến quản lý", "success");
     await notifyUsers(
@@ -648,7 +651,7 @@ async function submitExtensionRequest(taskId) {
       `${escapeHtml(memberName(store.currentUser.id))} đề xuất gia hạn: ${escapeHtml(task.title)} → ${formatDateVN(newDate)}`,
       taskId
     );
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể gửi yêu cầu", "error");
   }
