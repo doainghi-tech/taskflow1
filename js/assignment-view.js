@@ -146,13 +146,14 @@ async function submitEditTask(taskId) {
   const mainAssigneeChanged = mainAssignee !== task.main_assignee_id;
 
   try {
-    await apiUpdateTask(taskId, {
+    const updated = await apiUpdateTask(taskId, {
       title,
       description,
       main_assignee_id: mainAssignee,
       support_assignee_ids: newSupport,
       due_date: dueDate,
     });
+    Object.assign(task, updated);
     closeModal();
     toast("Đã lưu thay đổi", "success");
 
@@ -166,7 +167,7 @@ async function submitEditTask(taskId) {
         taskId
       );
     }
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể lưu thay đổi", "error");
   }
@@ -218,10 +219,11 @@ async function submitCreateProject() {
   if (!name) return toast("Nhập tên dự án", "error");
   try {
     const p = await apiCreateProject({ name, description, created_by: store.currentUser.id });
+    store.projects.unshift(p); // thêm trực tiếp vào store, khỏi gọi lại getAllData
     closeModal();
     toast("Đã tạo dự án", "success");
     assignmentExpanded[p.id] = true;
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể tạo dự án", "error");
   }
@@ -376,6 +378,7 @@ async function submitCreateTask(projectId) {
       status: "todo",
       created_by: store.currentUser.id,
     });
+    store.tasks.push(created); // thêm trực tiếp vào store, khỏi gọi lại getAllData
     closeModal();
     toast("Đã tạo task", "success");
     assignmentExpanded[projectId] = true;
@@ -386,7 +389,7 @@ async function submitCreateTask(projectId) {
       `${escapeHtml(title)} · Hạn: ${formatDateVN(dueDate)}`,
       created.id
     );
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể tạo task", "error");
   }
