@@ -160,10 +160,11 @@ async function submitQuickCreateTask(dateStr) {
       status: "todo",
       created_by: store.currentUser.id,
     });
+    store.tasks.push(created); // thêm trực tiếp vào store, khỏi gọi lại getAllData
     closeModal();
     toast("Đã tạo task", "success");
     await notifyUser(mainAssignee, "task_assigned", "Bạn được giao task mới", `${escapeHtml(title)} · Hạn: ${formatDateVN(dateStr)}`, created.id);
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể tạo task", "error");
   }
@@ -186,9 +187,11 @@ async function onCalendarDrop(e, dateStr) {
   const taskId = e.dataTransfer.getData("text/task-id");
   if (!taskId) return;
   try {
-    await apiUpdateTask(taskId, { due_date: dateStr, is_overdue_recorded: false });
+    const updated = await apiUpdateTask(taskId, { due_date: dateStr, is_overdue_recorded: false });
+    const task = store.tasks.find((t) => t.id === taskId);
+    if (task) Object.assign(task, updated);
     toast("Đã dời hạn task", "success");
-    await refreshAndRerender();
+    rerenderCurrentView();
   } catch (err) {
     toast("Không thể dời hạn task", "error");
   }
